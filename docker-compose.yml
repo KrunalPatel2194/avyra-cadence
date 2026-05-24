@@ -43,11 +43,10 @@ services:
       POSTGRES_DSN: postgresql+asyncpg://${POSTGRES_USER:-cadence}:${POSTGRES_PASSWORD:-cadence}@postgres:5432/${POSTGRES_DB:-cadence}
       AI_ENGINE_URL: ${AI_ENGINE_URL:-http://host.docker.internal:8000}
     ports:
-      # Host 10050 (inside the 10000-10100 router-forwarded range, and NOT on
-      # browser/WebKit "restricted ports" lists — 10080 is blocked as legacy
-      # amanda, would 'ERR_UNSAFE_PORT' both Chrome and iOS).
-      # Container still serves on 8010 internally.
-      - "10050:8010"
+      # Exposed on localhost only — Cloudflare Tunnel (cloudflared on the
+      # Windows host) routes `https://cadence-api.poisedgenie.com` →
+      # `http://localhost:8010` so we don't need any inbound router/ISP path.
+      - "8010:8010"
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

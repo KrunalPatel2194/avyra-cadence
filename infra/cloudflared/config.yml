@@ -1,0 +1,19 @@
+# Cloudflare Tunnel config for cadence-api.
+# Used by the cloudflared Windows service. Replace <TUNNEL_UUID> below with
+# the value `cloudflared tunnel create cadence` prints (or look it up later
+# with `cloudflared tunnel list`).
+#
+# Then move this file to %USERPROFILE%\.cloudflared\config.yml (the default
+# location the service reads from on Windows).
+
+tunnel: <TUNNEL_UUID>
+credentials-file: C:\Users\<YOUR_USER>\.cloudflared\<TUNNEL_UUID>.json
+
+# Routes for this tunnel — first match wins.
+ingress:
+  # Route 1: public hostname → cadence-api on this machine.
+  - hostname: cadence-api.poisedgenie.com
+    service: http://localhost:8010
+
+  # Catch-all (required as the last rule).
+  - service: http_status:404
