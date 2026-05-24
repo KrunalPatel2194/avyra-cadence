@@ -1,0 +1,39 @@
+# Secrets — never commit
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / Expo / RN
+node_modules/
+.expo/
+dist/
+*.log
+
+# Native iOS/Android build output
+mobile/ios/Pods/
+mobile/ios/build/
+mobile/android/build/
+mobile/android/.gradle/
+mobile/android/app/build/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Docker volumes (these stay local)
+postgres-data/
+
+# Plan / claude artifacts (machine-local)
+.claude/

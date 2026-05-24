@@ -1,0 +1,51 @@
+# Cadence stack — runs alongside the voice stack (avyra-voice-assistant).
+# Postgres lives on 5433 (host) so it doesn't collide with the voice stack's
+# Postgres on 5432.
+#
+# Bring up:
+#   docker compose --env-file .env up -d --build
+#
+# ai-engine is reachable via host.docker.internal (Mac/Win) — if you run
+# cadence-api in the same compose network as ai-engine later, switch to the
+# container name instead.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cadence-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-cadence}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cadence}
+      POSTGRES_DB:       ${POSTGRES_DB:-cadence}
+    ports:
+      - "5433:5432"
+    volumes:
+      - cadence-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  cadence-api:
+    build:
+      context: ./services/cadence-api
+      dockerfile: Dockerfile
+    container_name: cadence-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DSN: postgresql+asyncpg://${POSTGRES_USER:-cadence}:${POSTGRES_PASSWORD:-cadence}@postgres:5432/${POSTGRES_DB:-cadence}
+      AI_ENGINE_URL: ${AI_ENGINE_URL:-http://host.docker.internal:8000}
+    ports:
+      - "8010:8010"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  cadence-pgdata:

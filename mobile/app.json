@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "Cadence",
+    "slug": "cadence",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "cadence",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B0B0F"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.avyra.cadence",
+      "infoPlist": {
+        "NSAppTransportSecurity": { "NSAllowsArbitraryLoads": false }
+      }
+    },
+    "android": {
+      "package": "com.avyra.cadence",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#0B0B0F"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        { "icon": "./assets/icon.png", "color": "#0B0B0F" }
+      ]
+    ],
+    "extra": {
+      "router": { "origin": false }
+    },
+    "experiments": { "typedRoutes": true }
+  }
+}
