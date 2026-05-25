@@ -67,6 +67,17 @@ async def exchange_code(code: str, code_verifier: str, redirect_uri: str) -> Goo
     }
     if settings.GOOGLE_CLIENT_SECRET:
         payload["client_secret"] = settings.GOOGLE_CLIENT_SECRET
+
+    # Diagnostic — log what we send (without leaking code/verifier full text).
+    logger.info(
+        "exchange request: redirect_uri=%r client_id_tail=...%s code_len=%d verifier_len=%d secret_set=%s",
+        redirect_uri,
+        settings.GOOGLE_CLIENT_ID[-14:] if settings.GOOGLE_CLIENT_ID else "",
+        len(code or ""),
+        len(code_verifier or ""),
+        bool(settings.GOOGLE_CLIENT_SECRET),
+    )
+
     async with httpx.AsyncClient(timeout=15.0) as http:
         resp = await http.post(GOOGLE_TOKEN_URL, data=payload)
     if resp.status_code != 200:
