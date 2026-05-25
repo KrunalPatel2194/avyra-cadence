@@ -1,11 +1,15 @@
-// Sign-in screen — single Google button. Handles the PKCE response and posts
-// the auth code to cadence-api for token exchange.
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+// Sign-in screen — modern dark hero, single Google CTA, soft animated entry.
+// The PKCE response is handed straight to cadence-api /auth/google/exchange.
+import { LinearGradient } from "expo-linear-gradient";
+import { useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useGoogleAuthRequest } from "@/auth/google";
 import { useSession } from "@/auth/session";
-import { colors, radii, spacing, type } from "@/theme";
+import { colors, radii, spacing } from "@/theme";
 
 export default function SignIn() {
   const { request, response, promptAsync, redirectUri } = useGoogleAuthRequest();
@@ -13,10 +17,19 @@ export default function SignIn() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Entry animation: fade + lift logo, then content settles in.
+  const fade = useRef(new Animated.Value(0)).current;
+  const lift = useRef(new Animated.Value(24)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fade, { toValue: 1, duration: 520, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
+      Animated.timing(lift, { toValue: 0, duration: 520, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
+    ]).start();
+  }, [fade, lift]);
+
   useEffect(() => {
     if (response?.type !== "success") return;
     const code = response.params.code;
-    // expo-auth-session attaches the PKCE verifier to request.codeVerifier
     const codeVerifier = (request as unknown as { codeVerifier?: string } | null)?.codeVerifier;
     if (!code || !codeVerifier) {
       setError("Sign-in did not return an auth code.");
@@ -24,58 +37,161 @@ export default function SignIn() {
     }
     setBusy(true);
     setError(null);
-    const tz = Intl?.DateTimeFormat()?.resolvedOptions()?.timeZone;
+    const tz = Intl?.DateTimeFormat?.()?.resolvedOptions?.()?.timeZone;
     exchange({ code, codeVerifier, redirectUri, tz })
       .catch((e: { detail?: string }) => setError(e?.detail || "exchange failed"))
       .finally(() => setBusy(false));
   }, [response, request, redirectUri, exchange]);
 
+  const animStyle = { opacity: fade, transform: [{ translateY: lift }] };
+
   return (
     <View style={styles.root}>
-      <View style={styles.center}>
-        <Text style={[type.h1, styles.title]}>Cadence</Text>
-        <Text style={[type.muted, styles.subtitle]}>
-          Your inbox, summarized. Your day, on track.
-        </Text>
-
-        <Pressable
-          onPress={() => { setError(null); promptAsync(); }}
-          disabled={!request || busy}
-          style={({ pressed }) => [
-            styles.btn,
-            (!request || busy) && styles.btnDisabled,
-            pressed && { opacity: 0.85 },
-          ]}
-        >
-          {busy ? <ActivityIndicator color="#0B0B0F" /> : (
-            <Text style={styles.btnLabel}>Continue with Google</Text>
-          )}
-        </Pressable>
-
-        {error && <Text style={styles.error}>{error}</Text>}
-
-        <Text style={[type.muted, styles.fine]}>
-          We only request read-only Gmail access. Your messages never leave your in-house LLM.
-        </Text>
+      {/* Background gradient + soft accent glow */}
+      <LinearGradient
+        colors={["#15151B", "#0B0B0F", "#000000"]}
+        locations={[0, 0.55, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={styles.glow} pointerEvents="none">
+        <LinearGradient
+          colors={["rgba(122,162,255,0.22)", "rgba(122,162,255,0)"]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
       </View>
+
+      <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+        {/* Brand */}
+        <Animated.View style={[styles.brand, animStyle]}>
+          <View style={styles.mark}>
+            <Text style={styles.markGlyph}>C</Text>
+          </View>
+          <Text style={styles.wordmark}>Cadence</Text>
+          <Text style={styles.tagline}>Your inbox, summarized.{"\n"}Your day, on track.</Text>
+        </Animated.View>
+
+        {/* CTA */}
+        <Animated.View style={[styles.cta, animStyle]}>
+          <Pressable
+            onPress={() => { setError(null); promptAsync(); }}
+            disabled={!request || busy}
+            style={({ pressed }) => [
+              styles.btn,
+              (!request || busy) && styles.btnDisabled,
+              pressed && styles.btnPressed,
+            ]}
+          >
+            {busy ? (
+              <ActivityIndicator color="#0B0B0F" />
+            ) : (
+              <View style={styles.btnInner}>
+                <GoogleGlyph />
+                <Text style={styles.btnLabel}>Continue with Google</Text>
+              </View>
+            )}
+          </Pressable>
+
+          {error && (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
+          <Text style={styles.fine}>
+            Read-only Gmail access. All summarization runs on your in-house LLM —
+            no third-party AI provider.
+          </Text>
+        </Animated.View>
+      </SafeAreaView>
+    </View>
+  );
+}
+
+// Tiny inline Google "G" mark — avoids a remote image / extra dep.
+function GoogleGlyph() {
+  return (
+    <View style={styles.gWrap}>
+      <Text style={styles.gLetter}>G</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg, padding: spacing.xl, justifyContent: "center" },
-  center: { gap: spacing.lg },
-  title: { textAlign: "center" },
-  subtitle: { textAlign: "center", marginBottom: spacing.xl },
+  root: { flex: 1, backgroundColor: colors.bg },
+  glow: { position: "absolute", top: -120, left: -80, right: -80, height: 380, opacity: 0.85 },
+  safe: { flex: 1, paddingHorizontal: spacing.xl, justifyContent: "space-between" },
+
+  brand: { marginTop: spacing.xxl + 24, alignItems: "flex-start", gap: spacing.lg },
+  mark: {
+    width: 56, height: 56,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    alignItems: "center", justifyContent: "center",
+  },
+  markGlyph: {
+    color: colors.text,
+    fontSize: 28,
+    fontWeight: "700",
+    letterSpacing: -1,
+    marginTop: -2,
+  },
+  wordmark: {
+    color: colors.text,
+    fontSize: 44,
+    fontWeight: "800",
+    letterSpacing: -1.4,
+    marginTop: spacing.sm,
+  },
+  tagline: {
+    color: colors.textMuted,
+    fontSize: 16,
+    lineHeight: 22,
+    maxWidth: 320,
+  },
+
+  cta: { marginBottom: spacing.xl + 8, gap: spacing.lg },
   btn: {
     backgroundColor: colors.text,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: radii.md,
+    borderRadius: radii.lg,
+    paddingVertical: 16,
+    paddingHorizontal: spacing.lg,
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.45,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
   },
-  btnDisabled: { opacity: 0.5 },
-  btnLabel: { color: colors.bg, fontWeight: "600", fontSize: 16 },
-  error: { color: colors.urgent, textAlign: "center", marginTop: spacing.sm },
-  fine: { textAlign: "center", marginTop: spacing.xl },
+  btnDisabled: { opacity: 0.45 },
+  btnPressed: { transform: [{ scale: 0.985 }], opacity: 0.92 },
+  btnInner: { flexDirection: "row", alignItems: "center", gap: 10 },
+  btnLabel: { color: colors.bg, fontSize: 16, fontWeight: "700", letterSpacing: -0.2 },
+
+  gWrap: {
+    width: 22, height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.bg,
+    alignItems: "center", justifyContent: "center",
+  },
+  gLetter: { color: colors.text, fontSize: 14, fontWeight: "800", marginTop: -1 },
+
+  errorBox: {
+    backgroundColor: "rgba(255,122,122,0.08)",
+    borderColor: "rgba(255,122,122,0.35)",
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: spacing.md,
+  },
+  errorText: { color: colors.urgent, fontSize: 13 },
+
+  fine: {
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: "center",
+    paddingHorizontal: spacing.sm,
+  },
 });

@@ -16,7 +16,15 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.avyra.cadence",
       "infoPlist": {
-        "NSAppTransportSecurity": { "NSAllowsArbitraryLoads": false }
+        "NSAppTransportSecurity": { "NSAllowsArbitraryLoads": false },
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.226986045351-11sa15i7d2dlhla6l7tfo2a8ommp558v",
+              "cadence"
+            ]
+          }
+        ]
       }
     },
     "android": {
