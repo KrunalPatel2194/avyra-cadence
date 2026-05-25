@@ -1,8 +1,8 @@
 // Mobile config — reads EXPO_PUBLIC_* env vars at build time.
 // To change: edit `.env`, then `npx expo prebuild --clean && npx expo run:ios`.
 
-const apiUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8010";
-const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "";
+const apiUrl = "https://creek-nuts-radios-entrepreneur.trycloudflare.com";
+const googleIosClientId = "226986045351-11sa15i7d2dlhla6l7tfo2a8ommp558v.apps.googleusercontent.com";
 
 export const config = {
   apiUrl,

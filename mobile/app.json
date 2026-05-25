@@ -36,7 +36,6 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store",
       [
         "expo-notifications",
         { "icon": "./assets/icon.png", "color": "#0B0B0F" }
@@ -45,6 +44,7 @@
     "extra": {
       "router": { "origin": false }
     },
-    "experiments": { "typedRoutes": true }
+    "experiments": { "typedRoutes": false },
+    "assetBundlePatterns": ["**/*"]
   }
 }

@@ -37,7 +37,7 @@ export default function EmailDetail() {
       {data.tasks.length > 0 && (
         <View style={styles.card}>
           <Text style={type.tiny}>EXTRACTED TASKS</Text>
-          {data.tasks.map((t) => (
+          {data.tasks.map((t: any) => (
             <View key={t.id} style={styles.task}>
               <Text style={type.body}>{t.title}</Text>
               {(t.due_date || t.priority) && (

@@ -40,7 +40,7 @@ export default function DigestScreen() {
           {data.highlights.length > 0 && (
             <View style={styles.card}>
               <Text style={type.tiny}>HIGHLIGHTS</Text>
-              {data.highlights.map((h, i) => (
+              {data.highlights.map((h: string, i: number) => (
                 <Text key={i} style={[type.body, { marginTop: spacing.xs }]}>• {h}</Text>
               ))}
             </View>
