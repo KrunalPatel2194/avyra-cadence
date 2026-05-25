@@ -1,6 +1,6 @@
 // Sign-in screen — modern dark hero, single Google CTA, soft animated entry.
-// The PKCE response is handed straight to cadence-api /auth/google/exchange.
-import { LinearGradient } from "expo-linear-gradient";
+// No native modules required: the "gradient" is faked with stacked translucent
+// View layers, which lets us avoid a prebuild round-trip just for the BG.
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View,
@@ -47,20 +47,12 @@ export default function SignIn() {
 
   return (
     <View style={styles.root}>
-      {/* Background gradient + soft accent glow */}
-      <LinearGradient
-        colors={["#15151B", "#0B0B0F", "#000000"]}
-        locations={[0, 0.55, 1]}
-        style={StyleSheet.absoluteFill}
-      />
-      <View style={styles.glow} pointerEvents="none">
-        <LinearGradient
-          colors={["rgba(122,162,255,0.22)", "rgba(122,162,255,0)"]}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-      </View>
+      {/* Faked gradient — three stacked layers blend into the bg color */}
+      <View style={[styles.bgLayer, { backgroundColor: "#15151B", opacity: 1 }]} />
+      <View style={[styles.bgLayer, { backgroundColor: "#0B0B0F", opacity: 0.85, top: "30%" }]} />
+      <View style={[styles.bgLayer, { backgroundColor: "#000000", opacity: 0.75, top: "60%" }]} />
+      {/* Soft accent glow at the top */}
+      <View style={styles.glow} pointerEvents="none" />
 
       <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
         {/* Brand */}
@@ -120,7 +112,19 @@ function GoogleGlyph() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  glow: { position: "absolute", top: -120, left: -80, right: -80, height: 380, opacity: 0.85 },
+
+  // Background layers
+  bgLayer: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0 },
+  glow: {
+    position: "absolute",
+    top: -200, left: -120, right: -120,
+    height: 460,
+    borderRadius: 240,
+    backgroundColor: colors.accent,
+    opacity: 0.10,
+    transform: [{ scaleX: 1.4 }],
+  },
+
   safe: { flex: 1, paddingHorizontal: spacing.xl, justifyContent: "space-between" },
 
   brand: { marginTop: spacing.xxl + 24, alignItems: "flex-start", gap: spacing.lg },
