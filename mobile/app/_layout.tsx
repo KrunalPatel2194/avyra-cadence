@@ -24,9 +24,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (signedIn === null) return;
     const inAuthGroup = segments[0] === "(auth)";
+    const inTabsGroup = segments[0] === "(tabs)";
+    const onModalRoute = segments[0] === "email" || segments[0] === "task";
+
     if (!signedIn && !inAuthGroup) {
+      // Not signed in and not on sign-in screen → bounce to sign-in.
       router.replace("/(auth)/sign-in");
-    } else if (signedIn && inAuthGroup) {
+    } else if (signedIn && !inTabsGroup && !onModalRoute) {
+      // Signed in but sitting on `/` (index) or `(auth)/...`. Push to tasks.
       router.replace("/(tabs)/tasks");
     }
   }, [signedIn, segments, router]);
