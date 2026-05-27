@@ -7,13 +7,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useGoogleAuthRequest } from "@/auth/google";
+import { isCancelled } from "@/auth/google";
 import { useSession } from "@/auth/session";
 import { colors, radii, spacing } from "@/theme";
 
 export default function SignIn() {
-  const { request, response, promptAsync, redirectUri } = useGoogleAuthRequest();
-  const { exchange, devLogin } = useSession();
+  const { signInWithGoogle } = useSession();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,35 +26,24 @@ export default function SignIn() {
     ]).start();
   }, [fade, lift]);
 
-  useEffect(() => {
-    if (response?.type !== "success") return;
-    const code = response.params?.code;
-    // PKCE verifier lives on the AuthRequest object — same instance that
-    // computed the challenge sent at /authorize. Reading from `request`
-    // (not `response`) is intentional: that's where expo-auth-session
-    // stores it. If it's missing, the verifier was lost and there's no
-    // point hitting Google — it will respond invalid_grant.
-    const codeVerifier = (request as unknown as { codeVerifier?: string } | null)?.codeVerifier;
-
-    if (__DEV__) {
-      console.log("[sign-in] exchange inputs:", {
-        codeLen: code?.length ?? 0,
-        verifierLen: codeVerifier?.length ?? 0,
-        redirectUri,
-      });
-    }
-
-    if (!code || !codeVerifier) {
-      setError("Sign-in did not return an auth code or verifier.");
-      return;
-    }
-    setBusy(true);
+  const onSignInPress = async () => {
     setError(null);
-    const tz = Intl?.DateTimeFormat?.()?.resolvedOptions?.()?.timeZone;
-    exchange({ code, codeVerifier, redirectUri, tz })
-      .catch((e: { detail?: string }) => setError(e?.detail || "exchange failed"))
-      .finally(() => setBusy(false));
-  }, [response, request, redirectUri, exchange]);
+    setBusy(true);
+    try {
+      await signInWithGoogle();
+    } catch (e: unknown) {
+      if (isCancelled(e)) {
+        // User dismissed the modal — silent.
+        return;
+      }
+      const msg = (e as { detail?: string; message?: string })?.detail
+        || (e as { message?: string })?.message
+        || "sign-in failed";
+      setError(msg);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const animStyle = { opacity: fade, transform: [{ translateY: lift }] };
 
@@ -81,11 +69,11 @@ export default function SignIn() {
         {/* CTA */}
         <Animated.View style={[styles.cta, animStyle]}>
           <Pressable
-            onPress={() => { setError(null); promptAsync(); }}
-            disabled={!request || busy}
+            onPress={onSignInPress}
+            disabled={busy}
             style={({ pressed }) => [
               styles.btn,
-              (!request || busy) && styles.btnDisabled,
+              busy && styles.btnDisabled,
               pressed && styles.btnPressed,
             ]}
           >
@@ -102,9 +90,6 @@ export default function SignIn() {
           {error && (
             <View style={styles.errorBox}>
               <Text style={styles.errorText}>{error}</Text>
-              <Pressable onPress={() => devLogin('test@example.com')} style={styles.devBtn}>
-                <Text style={styles.devBtnText}>Test Login</Text>
-              </Pressable>
             </View>
           )}
 

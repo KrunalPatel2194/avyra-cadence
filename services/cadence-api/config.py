@@ -30,6 +30,18 @@ class Settings(BaseSettings):
     # RN/Expo redirect URI registered in the Google Cloud OAuth client.
     GOOGLE_REDIRECT_URI: str = ""
 
+    # ── Server-mediated OAuth (Web client, used by mobile in Expo Go) ──────
+    # Required for the /auth/google/start + /auth/google/callback flow.
+    # Create a "Web application" OAuth client in Google Console with
+    # `<PUBLIC_API_URL>/auth/google/callback` registered as an Authorized
+    # redirect URI.
+    GOOGLE_WEB_CLIENT_ID: str = ""
+    GOOGLE_WEB_CLIENT_SECRET: str = ""
+    # Where THIS service is reachable from the public internet — the value
+    # used to build the redirect_uri sent to Google. Must EXACTLY equal what
+    # you register in Google Console.
+    PUBLIC_API_URL: str = ""
+
     # ── ai-engine ──────────────────────────────────────────────────────────
     AI_ENGINE_URL: str = "http://localhost:8000"
     # Must match the same env var on the ai-engine container — bearer token
