@@ -121,17 +121,37 @@ async def poll_user(user_id: uuid.UUID) -> dict[str, Any]:
                     received_at=msg.received_at,
                     body=msg.body_text,
                 )
+                category = (sum_resp.get("category") or "other").lower()
                 await _mark_processed(
                     email_id,
                     summary=sum_resp.get("summary"),
                     model=sum_resp.get("model"),
                     urgent=bool(sum_resp.get("is_urgent")),
-                    category=sum_resp.get("category") or "other",
+                    category=category,
                 )
                 summarized_count += 1
             except AiEngineError as e:
                 logger.warning("summarize failed email=%s: %s", email_id, e)
                 # Leave processed_at NULL so a later run can retry.
+                continue
+
+            # Category gate — skip extract_tasks for known-noise categories. The
+            # summarize prompt classifies these accurately enough that running
+            # extract on top of them only produces false-positive tasks
+            # ("Reply to <newsletter>", "Pay invoice already paid", etc).
+            SKIP_TASK_CATEGORIES = {"promo", "newsletter", "notification"}
+            if category in SKIP_TASK_CATEGORIES:
+                logger.info("skipping extract_tasks for email=%s category=%s", email_id, category)
+                continue
+
+            # Skip auto / no-reply senders — they never warrant a real task.
+            from_addr_lc = (msg.from_addr or "").lower()
+            if any(
+                tag in from_addr_lc
+                for tag in ("no-reply@", "noreply@", "do-not-reply@", "donotreply@",
+                            "notifications@", "alerts@", "auto-confirm@", "mailer-daemon@")
+            ):
+                logger.info("skipping extract_tasks for email=%s (no-reply sender)", email_id)
                 continue
 
             try:
@@ -221,6 +241,42 @@ async def _mark_processed(
         e.processed_at = datetime.now(timezone.utc)
 
 
+def _is_vague_title(title: str) -> bool:
+    """Reject titles that don't actually describe a task. These are the
+    classic LLM cop-outs that pollute the list: 'Reply to X', 'Read the email
+    from Y', etc. The prompt forbids these but small models still emit them."""
+    t = title.lower().strip().rstrip(".")
+    if not t:
+        return True
+    VAGUE_PREFIXES = (
+        "reply to ", "respond to ", "respond ",
+        "read ", "read the ",
+        "review the email", "review the message", "review email",
+        "check email", "check the email", "check inbox",
+        "follow up", "follow-up", "check in with",
+        "be aware of ", "stay updated", "stay informed",
+        "look at ", "look into ",
+    )
+    if any(t.startswith(p) for p in VAGUE_PREFIXES):
+        # Only allow if the title is actually specific enough — heuristic:
+        # at least 6 words AND contains a noun phrase that's not just the
+        # sender's name. For simplicity, require >= 8 words.
+        return len(t.split()) < 8
+    # Single-word "Reply" / "Review" etc.
+    if t in {"reply", "review", "read", "check", "follow up", "ack"}:
+        return True
+    return False
+
+
+# Tasks at or above this confidence land as "open" (visible in the main view).
+# Below this, they drop into "snoozed" (suggestions only). Was 0.55; raised
+# because qwen3:1.7b returns shallow false positives at borderline confidence.
+OPEN_TASK_CONFIDENCE = 0.75
+# Tasks below this drop entirely. The prompt also enforces this as a hard
+# floor; this is defense-in-depth.
+MIN_TASK_CONFIDENCE = 0.55
+
+
 async def _insert_tasks(
     user_id: uuid.UUID,
     email_id: uuid.UUID,
@@ -228,7 +284,8 @@ async def _insert_tasks(
     model: str | None,
 ) -> int:
     """Insert LLM-extracted tasks. Skips ones that already exist (idempotent
-    by title + source_ref) so a re-run of the same email doesn't duplicate."""
+    by title + source_ref) so a re-run of the same email doesn't duplicate.
+    Filters out vague titles and low-confidence outputs."""
     if not raw_tasks:
         return 0
     from datetime import date as _date, time as _time
@@ -250,6 +307,14 @@ async def _insert_tasks(
             if not title or title in existing_titles:
                 continue
 
+            confidence = float(t.get("confidence") or 0.0)
+            if confidence < MIN_TASK_CONFIDENCE:
+                logger.info("dropping task (low conf %.2f): %s", confidence, title[:60])
+                continue
+            if _is_vague_title(title):
+                logger.info("dropping task (vague title): %s", title[:60])
+                continue
+
             due_date = None
             if isinstance(t.get("due_date"), str):
                 try:
@@ -265,10 +330,9 @@ async def _insert_tasks(
                     due_time = None
 
             priority = t.get("priority") if t.get("priority") in ("low", "med", "high") else "low"
-            confidence = float(t.get("confidence") or 0.0)
-            # Low-confidence tasks survive but stay 'snoozed' — they show up
-            # in the "suggested" filter rather than the main list.
-            status = "snoozed" if confidence < 0.55 else "open"
+            # Confidence-gated: <0.75 lands as 'snoozed' (suggestion); >=0.75
+            # lands as 'open' (visible in main task list).
+            status = "open" if confidence >= OPEN_TASK_CONFIDENCE else "snoozed"
 
             row = Task(
                 user_id=user_id,
