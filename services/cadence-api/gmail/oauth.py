@@ -81,7 +81,8 @@ async def exchange_code(code: str, code_verifier: str, redirect_uri: str) -> Goo
     async with httpx.AsyncClient(timeout=15.0) as http:
         resp = await http.post(GOOGLE_TOKEN_URL, data=payload)
     if resp.status_code != 200:
-        logger.warning("Google token exchange failed: %s — %s", resp.status_code, resp.text[:300])
+        logger.error("Google token exchange failed: %s — payload: %s — response: %s",
+                     resp.status_code, {k: v[:20] if isinstance(v, str) else v for k, v in payload.items()}, resp.text[:500])
         raise PermissionError(f"google token exchange failed ({resp.status_code})")
     body = resp.json()
 

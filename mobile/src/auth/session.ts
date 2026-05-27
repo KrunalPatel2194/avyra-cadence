@@ -40,6 +40,7 @@ export const useSession = create<SessionState>((set, get) => ({
   },
 
   exchange: async ({ code, codeVerifier, redirectUri, tz }) => {
+    console.log("OAuth exchange:", { redirectUri, codeVerifier: codeVerifier?.slice(0, 20), code: code?.slice(0, 20) });
     const resp = await api.post<ExchangeResponse>("/auth/google/exchange", {
       code, code_verifier: codeVerifier, redirect_uri: redirectUri, tz,
     }, { auth: false });

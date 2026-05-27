@@ -16,33 +16,32 @@ import { config } from "@/config";
 
 const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 
-// Google's iOS OAuth client ID looks like:
-//   226986045351-abc.apps.googleusercontent.com
-// The redirect URI it requires is the reverse-DNS form:
-//   com.googleusercontent.apps.226986045351-abc:/oauthredirect
-// This URL scheme MUST also be registered in iOS Info.plist (see app.json).
-const reversedClientId = config.googleIosClientId
-  ? `com.googleusercontent.apps.${config.googleIosClientId.replace(".apps.googleusercontent.com", "")}`
-  : "";
-
-const explicitRedirectUri = reversedClientId
-  ? AuthSession.makeRedirectUri({ native: `${reversedClientId}:/oauthredirect` })
-  : "";
+// iOS OAuth with Google requires the reverse-DNS scheme as redirect_uri.
+// The provider defaults to exp:// in dev mode, but Google won't accept that.
+const getIosRedirectUri = () => {
+  if (!config.googleIosClientId) return "";
+  const clientIdPart = config.googleIosClientId.replace(".apps.googleusercontent.com", "");
+  return `com.googleusercontent.apps.${clientIdPart}://oauthredirect`;
+};
 
 export function useGoogleAuthRequest() {
+  const redirectUri = getIosRedirectUri();
+
   const [request, response, promptAsync] = Google.useAuthRequest({
     iosClientId: config.googleIosClientId || undefined,
     scopes: ["openid", "profile", "email", GMAIL_SCOPE],
-    redirectUri: explicitRedirectUri || undefined,
+    redirectUri, // Explicitly set to iOS scheme; prevents exp:// default in dev
     extraParams: {
       access_type: "offline",
-      prompt: "consent",          // force consent so a refresh_token is returned
+      prompt: "consent",
     },
   });
 
-  // Whatever URI the request was built with is what we must send to the
-  // backend for the code exchange (Google checks redirect_uri matches).
-  const redirectUri = request?.redirectUri ?? explicitRedirectUri;
+  console.log("OAuth request built.", {
+    computed_redirectUri: redirectUri,
+    request_redirectUri: request?.redirectUri,
+    match: redirectUri === request?.redirectUri,
+  });
 
   return { request, response, promptAsync, redirectUri };
 }

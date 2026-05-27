@@ -13,7 +13,7 @@ import { colors, radii, spacing } from "@/theme";
 
 export default function SignIn() {
   const { request, response, promptAsync, redirectUri } = useGoogleAuthRequest();
-  const { exchange } = useSession();
+  const { exchange, devLogin } = useSession();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,6 +88,9 @@ export default function SignIn() {
           {error && (
             <View style={styles.errorBox}>
               <Text style={styles.errorText}>{error}</Text>
+              <Pressable onPress={() => devLogin('test@example.com')} style={styles.devBtn}>
+                <Text style={styles.devBtnText}>Test Login</Text>
+              </Pressable>
             </View>
           )}
 
@@ -197,5 +200,17 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: "center",
     paddingHorizontal: spacing.sm,
+  },
+
+  devBtn: {
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: "#222",
+    borderRadius: radii.md,
+  },
+  devBtnText: {
+    color: "#999",
+    fontSize: 12,
+    textAlign: "center",
   },
 });
