@@ -52,6 +52,7 @@ export default function RootLayout() {
               <Stack.Screen name="(auth)" />
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="email/[id]" options={{ headerShown: true, headerTitle: "Email", headerStyle: { backgroundColor: "#0B0B0F" }, headerTintColor: "#F2F2F4" }} />
+              <Stack.Screen name="task/[id]"  options={{ headerShown: true, headerTitle: "Task",     headerStyle: { backgroundColor: "#0B0B0F" }, headerTintColor: "#F2F2F4" }} />
               <Stack.Screen name="task/new"   options={{ presentation: "modal", headerShown: true, headerTitle: "New task", headerStyle: { backgroundColor: "#0B0B0F" }, headerTintColor: "#F2F2F4" }} />
             </Stack>
           </AuthGate>

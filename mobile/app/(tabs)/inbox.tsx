@@ -1,16 +1,15 @@
 import { useRouter } from "expo-router";
 import {
-  ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View,
+  ActivityIndicator, FlatList, StyleSheet, Text, View,
 } from "react-native";
 
-import { useEmails, useRefreshEmails } from "@/api/hooks";
+import { useEmails } from "@/api/hooks";
 import { EmailRow } from "@/components/EmailRow";
 import { colors, spacing, type } from "@/theme";
 
 export default function InboxScreen() {
   const router = useRouter();
-  const { data, isLoading, isFetching, refetch } = useEmails();
-  const refresh = useRefreshEmails();
+  const { data, isLoading } = useEmails();
 
   if (isLoading) {
     return <View style={styles.empty}><ActivityIndicator color={colors.textMuted} /></View>;
@@ -28,15 +27,11 @@ export default function InboxScreen() {
       )}
       ListEmptyComponent={
         <View style={styles.empty}>
-          <Text style={type.muted}>Nothing yet. Pull to refresh after Gmail finishes its first sync.</Text>
+          <Text style={type.muted}>
+            No emails yet. Cadence checks your inbox every 4 hours — your first
+            batch arrives shortly after sign-in.
+          </Text>
         </View>
-      }
-      refreshControl={
-        <RefreshControl
-          refreshing={isFetching || refresh.isPending}
-          onRefresh={async () => { await refresh.mutateAsync().catch(() => {}); await refetch(); }}
-          tintColor={colors.textMuted}
-        />
       }
     />
   );

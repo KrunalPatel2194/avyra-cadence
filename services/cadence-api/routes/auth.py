@@ -19,7 +19,7 @@ import uuid
 
 import urllib.parse
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
@@ -29,6 +29,7 @@ from config import settings
 from db.models import User
 from db.session import get_session
 from gmail.oauth import exchange_code
+from gmail.watcher import poll_user
 from gmail.web_oauth import (
     build_authorize_url,
     decode_state,
@@ -189,6 +190,7 @@ class NativeExchangeRequest(BaseModel):
 @router.post("/google/native-exchange", response_model=ExchangeResponse)
 async def google_native_exchange(
     req: NativeExchangeRequest,
+    background: BackgroundTasks,
     session: AsyncSession = Depends(get_session),
 ):
     """Mobile calls this after the native Google Sign-In SDK returns a
@@ -231,6 +233,12 @@ async def google_native_exchange(
 
     await session.flush()
     token_jwt = issue_jwt(user.id, user.email)
+
+    # Fire the first Gmail poll in the background so tasks appear within
+    # ~30s of sign-in — user never has to tap "refresh". The scheduler
+    # takes over from here on a 4h cadence.
+    background.add_task(poll_user, user.id)
+
     return ExchangeResponse(
         jwt=token_jwt,
         user=UserOut(

@@ -60,14 +60,19 @@ class GmailMessage:
 
 
 def _build_creds(refresh_token: str) -> Credentials:
-    # client_secret is optional — iOS PKCE clients don't have one. The Google
-    # auth library accepts None and will refresh without it for those clients.
+    # The refresh_token was issued by Google for the Web client (the native
+    # iOS Sign-In SDK requests offline access under the webClientId). To
+    # refresh it we MUST use the Web client's id + secret — the iOS client
+    # id won't work because Google scopes refresh tokens to the issuing
+    # client_id.
+    client_id = settings.GOOGLE_WEB_CLIENT_ID or settings.GOOGLE_CLIENT_ID
+    client_secret = settings.GOOGLE_WEB_CLIENT_SECRET or settings.GOOGLE_CLIENT_SECRET or None
     return Credentials(
         token=None,
         refresh_token=refresh_token,
         token_uri=GOOGLE_TOKEN_URL,
-        client_id=settings.GOOGLE_CLIENT_ID,
-        client_secret=settings.GOOGLE_CLIENT_SECRET or None,
+        client_id=client_id,
+        client_secret=client_secret,
         scopes=[GMAIL_SCOPE],
     )
 
@@ -192,14 +197,19 @@ def fetch_new_messages_sync(
     since: datetime | None,
     limit: int = MAX_MESSAGES_PER_POLL,
 ) -> list[GmailMessage]:
-    """Fetch messages newer than `since` (or last 24h on first poll).
+    """Fetch messages from the last `GMAIL_LOOKBACK_DAYS` days, regardless
+    of `since`. The 5-day window is intentional — it catches anything we
+    missed while offline, and the watcher dedupes via the unique
+    (user_id, gmail_msg_id) index so already-processed mail isn't
+    re-summarized. `since` is ignored on purpose; kept in the signature for
+    callers that haven't been updated yet.
 
-    Skips Gmail chats. Returns oldest-first so callers can stamp `last_polled_at`
-    from the newest after a successful run.
+    Skips Gmail chats. Returns oldest-first so callers can stamp
+    `last_polled_at` from the newest after a successful run.
     """
     svc = _service(refresh_token)
-    if since is None:
-        since = datetime.now(timezone.utc) - timedelta(hours=24)
+    lookback = max(1, settings.GMAIL_LOOKBACK_DAYS)
+    since = datetime.now(timezone.utc) - timedelta(days=lookback)
     after_epoch = int(since.timestamp())
     # `-in:chats` excludes Hangouts; `-from:me` skips sent mail.
     query = f"after:{after_epoch} -in:chats -from:me"

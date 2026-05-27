@@ -50,10 +50,11 @@ class Settings(BaseSettings):
     AI_ENGINE_TIMEOUT_SECONDS: int = 180
 
     # ── Scheduler cadence ──────────────────────────────────────────────────
-    # User-set policy: poll Gmail every 2 hours, NOT continually. Lower API
-    # quota burn and lower Ollama inference cost. Documented in
-    # ~/.claude/projects/p--Avyra/memory/feedback_cadence_poll_interval.md.
-    GMAIL_POLL_INTERVAL_SECONDS: int = 7200          # 2h
+    # User-set policy: poll Gmail every 4 hours, scanning the last 5 days
+    # every time. No manual refresh path exposed in the app — scheduler is
+    # the only ingestion trigger (plus an auto-poll right after sign-in).
+    GMAIL_POLL_INTERVAL_SECONDS: int = 14400         # 4h
+    GMAIL_LOOKBACK_DAYS: int = 5
     OVERDUE_SWEEP_INTERVAL_SECONDS: int = 3600       # 1h
     DIGEST_LOCAL_HOUR: int = 7                       # 07:00 in each user's tz
 
