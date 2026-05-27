@@ -27,19 +27,22 @@ export default function SignIn() {
   }, [fade, lift]);
 
   const onSignInPress = async () => {
+    console.log("[sign-in] button tapped");
     setError(null);
     setBusy(true);
     try {
+      console.log("[sign-in] calling signInWithGoogle()");
       await signInWithGoogle();
+      console.log("[sign-in] signInWithGoogle() succeeded");
     } catch (e: unknown) {
+      console.log("[sign-in] signInWithGoogle() threw:", e);
       if (isCancelled(e)) {
         // User dismissed the modal — silent.
         return;
       }
-      const msg = (e as { detail?: string; message?: string })?.detail
-        || (e as { message?: string })?.message
-        || "sign-in failed";
-      setError(msg);
+      const errObj = e as { detail?: string; message?: string; code?: string };
+      const msg = errObj?.detail || errObj?.message || errObj?.code || "sign-in failed";
+      setError(`${msg}${errObj?.code ? ` (code: ${errObj.code})` : ""}`);
     } finally {
       setBusy(false);
     }
