@@ -29,10 +29,24 @@ export default function SignIn() {
 
   useEffect(() => {
     if (response?.type !== "success") return;
-    const code = response.params.code;
+    const code = response.params?.code;
+    // PKCE verifier lives on the AuthRequest object — same instance that
+    // computed the challenge sent at /authorize. Reading from `request`
+    // (not `response`) is intentional: that's where expo-auth-session
+    // stores it. If it's missing, the verifier was lost and there's no
+    // point hitting Google — it will respond invalid_grant.
     const codeVerifier = (request as unknown as { codeVerifier?: string } | null)?.codeVerifier;
+
+    if (__DEV__) {
+      console.log("[sign-in] exchange inputs:", {
+        codeLen: code?.length ?? 0,
+        verifierLen: codeVerifier?.length ?? 0,
+        redirectUri,
+      });
+    }
+
     if (!code || !codeVerifier) {
-      setError("Sign-in did not return an auth code.");
+      setError("Sign-in did not return an auth code or verifier.");
       return;
     }
     setBusy(true);

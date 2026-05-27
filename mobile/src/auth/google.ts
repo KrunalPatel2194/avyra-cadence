@@ -11,37 +11,55 @@
 // CFBundleURLScheme — see app.json `ios.infoPlist.CFBundleURLTypes`.
 import * as AuthSession from "expo-auth-session";
 import * as Google from "expo-auth-session/providers/google";
+import { useMemo } from "react";
 
 import { config } from "@/config";
 
 const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 
-// iOS OAuth with Google requires the reverse-DNS scheme as redirect_uri.
-// The provider defaults to exp:// in dev mode, but Google won't accept that.
-const getIosRedirectUri = () => {
-  if (!config.googleIosClientId) return "";
-  const clientIdPart = config.googleIosClientId.replace(".apps.googleusercontent.com", "");
-  return `com.googleusercontent.apps.${clientIdPart}://oauthredirect`;
-};
+// Google's iOS OAuth client REQUIRES the redirect URI in this exact form:
+//   com.googleusercontent.apps.<REVERSE_CLIENT_ID>:/oauthredirect
+//             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ^^
+//             scheme (registered in Info.plist)     SINGLE slash, then path
+//
+// Double slash (`://oauthredirect`) makes the URI parser treat `oauthredirect`
+// as the authority/host instead of the path, which Google rejects as a
+// redirect_uri mismatch — and Google packages that as `invalid_grant` in the
+// token-endpoint response. So: single slash, no exceptions.
+function buildIosRedirectUri(iosClientId: string): string {
+  if (!iosClientId) return "";
+  const reversedId = `com.googleusercontent.apps.${iosClientId.replace(".apps.googleusercontent.com", "")}`;
+  // makeRedirectUri with `native` keeps the exact string we provide in dev builds.
+  return AuthSession.makeRedirectUri({ native: `${reversedId}:/oauthredirect` });
+}
 
 export function useGoogleAuthRequest() {
-  const redirectUri = getIosRedirectUri();
+  // Memoize so re-renders never produce a fresh URI (would force the
+  // AuthRequest to re-init and generate a new PKCE verifier — making the
+  // returned `code` and the stored verifier mismatch).
+  const redirectUri = useMemo(() => buildIosRedirectUri(config.googleIosClientId), []);
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     iosClientId: config.googleIosClientId || undefined,
     scopes: ["openid", "profile", "email", GMAIL_SCOPE],
-    redirectUri, // Explicitly set to iOS scheme; prevents exp:// default in dev
+    redirectUri,
     extraParams: {
       access_type: "offline",
       prompt: "consent",
     },
   });
 
-  console.log("OAuth request built.", {
-    computed_redirectUri: redirectUri,
-    request_redirectUri: request?.redirectUri,
-    match: redirectUri === request?.redirectUri,
-  });
+  if (__DEV__) {
+    // Logged once per hook init — useful only when chasing OAuth bugs.
+    // Should show: built === request === non-empty, exactly equal.
+
+    console.log("[google-oauth] redirectUri:", {
+      built: redirectUri,
+      requestUri: request?.redirectUri,
+      match: redirectUri === request?.redirectUri,
+      verifierLen: (request as unknown as { codeVerifier?: string } | null)?.codeVerifier?.length ?? 0,
+    });
+  }
 
   return { request, response, promptAsync, redirectUri };
 }
